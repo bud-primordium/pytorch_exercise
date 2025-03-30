@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.11.16)  29 MAR 2025 23:49
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.11.16)  30 MAR 2025 13:33
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -1156,12 +1156,6 @@ File: comphys.pdf Graphic file (type pdf)
 <use comphys.pdf>
 File: potential_data.png Graphic file (type bmp)
 <potential_data.png>
-
-
-Package caption Warning: The option `hypcap=true' will be ignored for this
-(caption)                particular \caption on input line 110.
-See the caption package documentation for explanation.
-
 
 Overfull \hbox (13.18071pt too wide) in paragraph at lines 85--113
 [][]  [] 
