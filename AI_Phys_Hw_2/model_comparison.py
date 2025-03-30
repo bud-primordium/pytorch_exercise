@@ -229,31 +229,31 @@ def prepare_data(
         data_info: 数据信息字典
     """
     # 从文件加载数据
-    if os.path.exists(data_file):
-        print(f"从文件 {data_file} 加载数据...")
-        data = np.loadtxt(data_file, dtype=np.float32)
-        X = data[:, :2]  # 前两列是坐标
-        U = data[:, 2]  # 第三列是势能值
-    else:
-        print(f"未找到文件 {data_file}，生成随机数据...")
+    try:
+        if os.path.exists(data_file):
+            print(f"从文件 {data_file} 加载数据...")
+            data = np.loadtxt(data_file, dtype=np.float32)
+            X = data[:, :2]  # 前两列是坐标
+            U = data[:, 2]  # 第三列是势能值
+        else:
+            print(f"未找到文件 {data_file}，生成随机数据...")
+            # 生成数据 (注意: x1范围为[-1.5, 1.5]，x2范围为[-0.5, 2.0])
+            x1 = np.random.uniform(low=-1.5, high=1.5, size=500).astype(np.float32)
+            x2 = np.random.uniform(low=-0.5, high=2.0, size=500).astype(np.float32)
+            X = np.stack([x1, x2], axis=1)
+            U = muller_brown_potential(x1, x2)
+    except (IOError, PermissionError) as e:
+        print(f"文件访问错误: {e}")
+        print("生成随机数据代替...")
         # 生成数据 (注意: x1范围为[-1.5, 1.5]，x2范围为[-0.5, 2.0])
         x1 = np.random.uniform(low=-1.5, high=1.5, size=500).astype(np.float32)
         x2 = np.random.uniform(low=-0.5, high=2.0, size=500).astype(np.float32)
         X = np.stack([x1, x2], axis=1)
         U = muller_brown_potential(x1, x2)
 
-    # 数据增广 - 使用更智能的采样策略
+    # 数据增广
     if augment and n_augment > 0:
         print(f"增广数据，额外添加 {n_augment} 个点...")
-
-        # 分析原始数据分布
-        x1_min, x1_max = X[:, 0].min(), X[:, 0].max()
-        x2_min, x2_max = X[:, 1].min(), X[:, 1].max()
-
-        # 战略性数据增广，关注以下区域：
-        # 1. 数据稀疏区域 - 使用均匀网格采样
-        # 2. 梯度大的区域 - 势能变化剧烈的地方需要更密集采样
-        # 3. 决策边界区域 - 模型通常在这些区域表现最差
 
         # 1. 均匀网格采样 (40%)
         n_grid = int(n_augment * 0.4)
@@ -547,7 +547,34 @@ def evaluate_and_visualize(
         rel_error = np.abs(U_diff) / (np.abs(U_true) + 1e-10) * 100
         mean_rel_error = np.mean(rel_error)
 
-        metrics["MAE"] = mae
+        # 分别计算训练集和测试集的MAE
+        # 训练集
+        X_train = data_info["X_train"]
+        y_train = data_info["y_train"]
+        X_train_tensor = torch.tensor(X_train, dtype=torch.float32).to(device)
+        train_preds = []
+        for i in range(0, len(X_train), batch_size):
+            batch = X_train_tensor[i : i + batch_size]
+            pred_batch = model(batch).cpu().numpy().flatten()
+            train_preds.append(pred_batch)
+        train_pred = np.concatenate(train_preds)
+        train_mae = np.mean(np.abs(train_pred - y_train))
+
+        # 测试集
+        X_val = data_info["X_val"]
+        y_val = data_info["y_val"]
+        X_val_tensor = torch.tensor(X_val, dtype=torch.float32).to(device)
+        val_preds = []
+        for i in range(0, len(X_val), batch_size):
+            batch = X_val_tensor[i : i + batch_size]
+            pred_batch = model(batch).cpu().numpy().flatten()
+            val_preds.append(pred_batch)
+        val_pred = np.concatenate(val_preds)
+        val_mae = np.mean(np.abs(val_pred - y_val))
+
+        metrics["全局MAE"] = mae
+        metrics["训练集MAE"] = train_mae
+        metrics["测试集MAE"] = val_mae
         metrics["RMSE"] = rmse
         metrics["最大误差"] = max_error
         metrics["平均相对误差(%)"] = mean_rel_error
@@ -720,7 +747,9 @@ def evaluate_and_visualize(
 
         # 输出评估指标
         print(f"\n{model_name}评估指标:")
-        print(f"MAE: {mae:.4f}")
+        print(f"全局MAE: {mae:.4f}")
+        print(f"训练集MAE: {train_mae:.4f}")
+        print(f"测试集MAE: {val_mae:.4f}")
         print(f"RMSE: {rmse:.4f}")
         print(f"最大误差: {max_error:.4f}")
         print(f"平均相对误差: {mean_rel_error:.2f}%")
@@ -1152,23 +1181,23 @@ def main():
 
     # 两轮训练的MAE对比
     plt.subplot(222)
-    metrics_names = ["MAE", "RMSE", "最大误差", "平均相对误差(%)"]
+    metrics_names = ["全局MAE", "RMSE", "最大误差", "平均相对误差(%)"]
     mae_1 = [
-        all_metrics["round1"]["MLP"]["MAE"],
-        all_metrics["round1"]["StdNet"]["MAE"],
-        all_metrics["round1"]["ResNet"]["MAE"],
+        all_metrics["round1"]["MLP"]["全局MAE"],
+        all_metrics["round1"]["StdNet"]["全局MAE"],
+        all_metrics["round1"]["ResNet"]["全局MAE"],
     ]
     mae_2 = [
-        all_metrics["round2"]["MLP"]["MAE"],
-        all_metrics["round2"]["StdNet"]["MAE"],
-        all_metrics["round2"]["ResNet"]["MAE"],
+        all_metrics["round2"]["MLP"]["全局MAE"],
+        all_metrics["round2"]["StdNet"]["全局MAE"],
+        all_metrics["round2"]["ResNet"]["全局MAE"],
     ]
 
     bars1 = plt.bar(x - width / 2, mae_1, width, label="原始数据", alpha=0.7)
     bars2 = plt.bar(x + width / 2, mae_2, width, label="增广数据", alpha=0.7)
 
-    plt.ylabel("MAE (越低越好)")
-    plt.title("MAE对比: 原始数据 vs 增广数据")
+    plt.ylabel("全局MAE (越低越好)")
+    plt.title("全局MAE对比: 原始数据 vs 增广数据")
     plt.xticks(x, models)
     plt.legend()
 
@@ -1462,7 +1491,15 @@ def main():
         )
 
         # 性能指标
-        for metric in metrics_names:
+        report_metrics = [
+            "全局MAE",
+            "训练集MAE",
+            "测试集MAE",
+            "RMSE",
+            "最大误差",
+            "平均相对误差(%)",
+        ]
+        for metric in report_metrics:
             f.write(
                 format_row.format(
                     metric,
@@ -1513,7 +1550,7 @@ def main():
         )
 
         # 性能指标
-        for metric in metrics_names:
+        for metric in report_metrics:
             f.write(
                 format_row.format(
                     metric,
@@ -1528,10 +1565,10 @@ def main():
         for model in ["MLP", "StdNet", "ResNet"]:
             mae_improve = (
                 (
-                    all_metrics["round1"][model]["MAE"]
-                    - all_metrics["round2"][model]["MAE"]
+                    all_metrics["round1"][model]["全局MAE"]
+                    - all_metrics["round2"][model]["全局MAE"]
                 )
-                / all_metrics["round1"][model]["MAE"]
+                / all_metrics["round1"][model]["全局MAE"]
                 * 100
             )
             rel_err_improve = (
@@ -1543,7 +1580,7 @@ def main():
                 * 100
             )
             f.write(
-                f"{model}: MAE改进 {mae_improve:.2f}%, 相对误差改进 {rel_err_improve:.2f}%\n"
+                f"{model}: 全局MAE改进 {mae_improve:.2f}%, 相对误差改进 {rel_err_improve:.2f}%\n"
             )
 
     # 将训练历史数据保存为JSON
