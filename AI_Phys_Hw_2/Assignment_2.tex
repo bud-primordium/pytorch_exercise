@@ -60,7 +60,7 @@
     \makebox[0.8\textwidth]{%
         \centering
         杨远青 \quad 22300190015 \quad
-        \href{https://github.com/bud-primordium/Computational-Physics-Fall-2024}{\raisebox{-2pt}{\includegraphics[height=12pt]{comphys.pdf}}}
+        \href{https://github.com/bud-primordium/pytorch_exercise/tree/main/AI_Phys_Hw_2}{\raisebox{-2pt}{\includegraphics[height=12pt]{comphys.pdf}}}
     }
 }
 
@@ -82,7 +82,7 @@ M\"{u}ller--Brown势能函数解析式为：
         \right]
 \]
 \subsection{参数系统}
-\begin{minipage}[t]{0.5\textwidth}
+\begin{minipage}[t]{0.45\textwidth}
     \vspace{-\baselineskip}
     \begin{align*}
         \text{振幅系数:}  & \quad \bm{A} = (-200, -100, -170, 15)       \\
@@ -107,7 +107,20 @@ M\"{u}ller--Brown势能函数解析式为：
     \vspace{-\baselineskip}
     \centering
     \includegraphics[width=\linewidth]{potential_data.png}
-    \captionof{figure}{势能面与训练集可视化}
+    \captionof{figure}{待拟合势能面与训练集可视化}
     \label{fig:surface}
 \end{minipage}
+\subsection{评估标准}
+MAE\footnote{最终MAE系列评价指标分为：全局MAE、训练集MAE、测试集MAE，其中全局MAE\textbf{不是}训练集和测试集的MAE的加权平均值，而是在全势能面上采集的（$100\times100$）个点（相当于更大的超测试集），与受限于优化采点策略的训练集、测试集，略有不同。}：
+\[
+    \text{MAE} = \frac{1}{N} \sum_{i=1}^N |U(x_1^{(i)}, x_2^{(i)}) - U_{\text{NN}}(x_1^{(i)}, x_2^{(i)})|
+\]
+
+
+及训练时间等。
+\section{模型设计}
+\subsection{MLPNet}
+\subsection{StdNet}
+\subsection{ResNet}
+
 \end{document}
